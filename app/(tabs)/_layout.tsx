@@ -1,59 +1,67 @@
-import React from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Stack, useRouter } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, ActivityIndicator } from 'react-native';
+import '../global.css'
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+SplashScreen.preventAutoHideAsync();
 
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
-}
+import { useFonts } from 'expo-font';
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function Layout() {
+  const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+
+  const [fontsLoaded, error] = useFonts({
+    'Gilroy': require('../../assets/fonts/Gilroy-Bold.ttf'),
+    'Gilroy-Regular': require('../../assets/fonts/Gilroy-Regular.ttf'),
+    'Gilroy-Medium': require('../../assets/fonts/Gilroy-Medium.ttf'),
+  });
+
+  // Check authentication status on mount
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      const userToken = await AsyncStorage.getItem('userToken');
+      setIsLoggedIn(!!userToken); // If userToken exists, user is logged in
+      SplashScreen.hideAsync();
+    };
+    checkLoginStatus();
+  }, []);
+
+  useEffect(() => {
+    if (fontsLoaded && isLoggedIn !== null) {
+      if (isLoggedIn) {
+        router.replace('/home'); // Redirect to the home screen if logged in
+      } else {
+        router.replace('/'); // Redirect to the onboarding screen if not logged in
+      }
+    }
+  }, [isLoggedIn, fontsLoaded]);
+
+  // Show a loading indicator while determining status
+  if (!fontsLoaded || isLoggedIn === null) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+        <Text style={{ marginTop: 10 }}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
-      }}>
-      <Tabs.Screen
+    <Stack>
+      {/* Specific configuration for the index.tsx page */}
+      <Stack.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="info-circle"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
+          headerShown: false, // Hide the top navigation bar on the index page
+          contentStyle: { backgroundColor: 'white' },
         }}
       />
-      <Tabs.Screen
-        name="two"
-        options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-        }}
-      />
-    </Tabs>
+      {/* Other pages will show the default navigation */}
+      <Stack.Screen name="home" options={{ headerShown: true }} />
+      <Stack.Screen name="login" options={{ headerShown: true }} />
+    </Stack>
   );
 }
